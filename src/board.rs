@@ -49,7 +49,44 @@ impl Board {
     }
 
     pub fn is_valid_move(&self, x: usize, y: usize) -> bool {
-        x < self.size && y < self.size && self.grid[y][x].is_none()
+        if x >= self.size || y >= self.size || self.grid[y][x].is_some() {
+            return false;
+        }
+        true
+    }
+
+    pub fn is_valid_move_for_stone(&self, x: usize, y: usize, stone: Stone) -> bool {
+        if !self.is_valid_move(x, y) {
+            return false;
+        }
+
+        // Create a temporary board to test the move
+        let mut test_board = self.clone();
+        test_board.grid[y][x] = Some(stone);
+
+        // Check if this move would capture opponent stones
+        let opponent = stone.opposite();
+        let neighbors = test_board.get_neighbors(x, y);
+        let mut would_capture = false;
+
+        for (nx, ny) in &neighbors {
+            if test_board.get(*nx, *ny) == Some(opponent) {
+                let group = test_board.get_group(*nx, *ny);
+                if test_board.has_no_liberties(&group) {
+                    would_capture = true;
+                    break;
+                }
+            }
+        }
+
+        // If we would capture opponent stones, the move is valid
+        if would_capture {
+            return true;
+        }
+
+        // Otherwise, check if our group would have liberties
+        let self_group = test_board.get_group(x, y);
+        !test_board.has_no_liberties(&self_group)
     }
 
     pub fn place_stone(&mut self, x: usize, y: usize, stone: Stone) -> Result<(), &'static str> {

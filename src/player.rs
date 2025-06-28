@@ -69,10 +69,10 @@ impl Player for HumanPlayer {
 
                     let row = board.size() - row_num;
 
-                    if board.is_valid_move(col, row) {
+                    if board.is_valid_move_for_stone(col, row, _stone) {
                         return Some((col, row));
                     } else {
-                        println!("That position is already occupied!");
+                        println!("Invalid move! That position is either occupied or would be suicide without capturing.");
                     }
                 }
                 Err(_) => {

@@ -97,7 +97,7 @@ impl MinimaxAI {
         let mut valid_moves = Vec::new();
         for y in 0..board.size() {
             for x in 0..board.size() {
-                if board.is_valid_move(x, y) {
+                if board.is_valid_move_for_stone(x, y, stone) {
                     valid_moves.push((x, y));
                 }
             }
@@ -167,7 +167,7 @@ impl Player for MinimaxAI {
         let mut valid_moves = Vec::new();
         for y in 0..board.size() {
             for x in 0..board.size() {
-                if board.is_valid_move(x, y) {
+                if board.is_valid_move_for_stone(x, y, stone) {
                     valid_moves.push((x, y));
                 }
             }
@@ -281,7 +281,7 @@ impl Player for Mcts {
         let mut valid_moves = Vec::new();
         for y in 0..board.size() {
             for x in 0..board.size() {
-                if board.is_valid_move(x, y) {
+                if board.is_valid_move_for_stone(x, y, stone) {
                     valid_moves.push((x, y));
                 }
             }

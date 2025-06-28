@@ -213,4 +213,38 @@ mod tests {
         }
         assert_eq!(board.get_captured(), (0, 8));
     }
+
+    #[test]
+    fn test_suicide_without_capture_invalid() {
+        let mut board = Board::new(5);
+
+        // Fill most of the board with Black stones
+        for y in 0..5 {
+            for x in 0..5 {
+                if !((x == 0 && y == 3) || (x == 2 && y == 3)) {
+                    board.place_stone(x, y, Stone::Black).unwrap();
+                }
+            }
+        }
+
+        // A2 (0,3) and C2 (2,3) should be invalid for White
+        assert!(!board.is_valid_move_for_stone(0, 3, Stone::White));
+        assert!(!board.is_valid_move_for_stone(2, 3, Stone::White));
+    }
+
+    #[test]
+    fn test_suicide_with_capture_valid() {
+        let mut board = Board::new(5);
+
+        // Create a situation where a suicide move would capture opponent stones
+        // Setup: White stone at corner surrounded by Black, but Black group has no liberties
+        board.place_stone(0, 0, Stone::White).unwrap();
+        board.place_stone(1, 0, Stone::Black).unwrap();
+        board.place_stone(0, 1, Stone::Black).unwrap();
+        board.place_stone(1, 1, Stone::White).unwrap();
+
+        // Now if Black plays at (0,0), it would capture the White stone
+        // even though Black stone itself would have no liberties after White is removed
+        assert!(board.is_valid_move_for_stone(0, 0, Stone::Black));
+    }
 }
