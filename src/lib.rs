@@ -36,13 +36,13 @@ mod tests {
     fn test_board_is_valid_move() {
         let mut board = Board::new(9);
 
-        assert!(board.is_valid_move(0, 0));
-        assert!(board.is_valid_move(8, 8));
-        assert!(!board.is_valid_move(9, 0));
-        assert!(!board.is_valid_move(0, 9));
+        assert!(board.is_valid_move(0, 0, Stone::Black));
+        assert!(board.is_valid_move(8, 8, Stone::White));
+        assert!(!board.is_valid_move(9, 0, Stone::Black));
+        assert!(!board.is_valid_move(0, 9, Stone::White));
 
         board.place_stone(0, 0, Stone::Black).unwrap();
-        assert!(!board.is_valid_move(0, 0));
+        assert!(!board.is_valid_move(0, 0, Stone::White));
     }
 
     #[test]
@@ -228,8 +228,8 @@ mod tests {
         }
 
         // A2 (0,3) and C2 (2,3) should be invalid for White
-        assert!(!board.is_valid_move_for_stone(0, 3, Stone::White));
-        assert!(!board.is_valid_move_for_stone(2, 3, Stone::White));
+        assert!(!board.is_valid_move(0, 3, Stone::White));
+        assert!(!board.is_valid_move(2, 3, Stone::White));
     }
 
     #[test]
@@ -245,6 +245,6 @@ mod tests {
 
         // Now if Black plays at (0,0), it would capture the White stone
         // even though Black stone itself would have no liberties after White is removed
-        assert!(board.is_valid_move_for_stone(0, 0, Stone::Black));
+        assert!(board.is_valid_move(0, 0, Stone::Black));
     }
 }

@@ -33,7 +33,7 @@ impl Player for RandomAI {
         // Collect all valid moves
         for y in 0..board.size() {
             for x in 0..board.size() {
-                if board.is_valid_move(x, y) {
+                if board.is_valid_move(x, y, _stone) {
                     valid_moves.push((x, y));
                 }
             }
@@ -70,13 +70,193 @@ impl MinimaxAI {
         let (black_stones, white_stones) = board.count_stones();
         let (black_captured, white_captured) = board.get_captured();
 
+        // Basic score from stones and captures
         let black_score = (black_stones + black_captured) as i32;
         let white_score = (white_stones + white_captured) as i32;
-
-        match stone {
+        let basic_score = match stone {
             Stone::Black => black_score - white_score,
             Stone::White => white_score - black_score,
+        };
+
+        // Additional strategic factors
+        let mut bonus = 0;
+
+        // 1. Check for groups in atari (can be captured next move)
+        let atari_bonus = self.evaluate_atari_situations(board, stone);
+        bonus += atari_bonus;
+
+        // 2. Group safety (number of liberties)
+        let safety_bonus = self.evaluate_group_safety(board, stone);
+        bonus += safety_bonus;
+
+        // 3. Potential captures
+        let capture_potential = self.evaluate_capture_potential(board, stone);
+        bonus += capture_potential;
+
+        basic_score * 10 + bonus
+    }
+
+    fn evaluate_atari_situations(&self, board: &Board, stone: Stone) -> i32 {
+        let mut atari_score = 0;
+        let opponent = stone.opposite();
+
+        // Check all opponent groups for atari (1 liberty)
+        for y in 0..board.size() {
+            for x in 0..board.size() {
+                if board.get(x, y) == Some(opponent) {
+                    let group = self.get_group(board, x, y);
+                    let liberties = self.count_liberties(board, &group);
+
+                    if liberties == 1 {
+                        // Opponent group in atari - we can capture it
+                        atari_score += group.len() as i32 * 5;
+                    }
+                }
+            }
         }
+
+        // Check our own groups for atari (negative score)
+        for y in 0..board.size() {
+            for x in 0..board.size() {
+                if board.get(x, y) == Some(stone) {
+                    let group = self.get_group(board, x, y);
+                    let liberties = self.count_liberties(board, &group);
+
+                    if liberties == 1 {
+                        // Our group in atari - it can be captured
+                        atari_score -= group.len() as i32 * 5;
+                    }
+                }
+            }
+        }
+
+        atari_score
+    }
+
+    fn evaluate_group_safety(&self, board: &Board, stone: Stone) -> i32 {
+        let mut safety_score = 0;
+
+        // Evaluate safety of our groups
+        let mut visited = vec![vec![false; board.size()]; board.size()];
+
+        for y in 0..board.size() {
+            for x in 0..board.size() {
+                if !visited[y][x] && board.get(x, y) == Some(stone) {
+                    let group = self.get_group(board, x, y);
+                    let liberties = self.count_liberties(board, &group);
+
+                    // Mark group as visited
+                    for &(gx, gy) in &group {
+                        visited[gy][gx] = true;
+                    }
+
+                    // More liberties = safer group
+                    safety_score += match liberties {
+                        0 => -100, // Should not happen
+                        1 => -20,  // In atari
+                        2 => 1,    // Vulnerable
+                        3 => 3,    // Relatively safe
+                        _ => 5,    // Very safe
+                    };
+                }
+            }
+        }
+
+        safety_score
+    }
+
+    fn evaluate_capture_potential(&self, board: &Board, stone: Stone) -> i32 {
+        let mut potential_score = 0;
+        let opponent = stone.opposite();
+
+        // Look for opponent groups with few liberties
+        let mut visited = vec![vec![false; board.size()]; board.size()];
+
+        for y in 0..board.size() {
+            for x in 0..board.size() {
+                if !visited[y][x] && board.get(x, y) == Some(opponent) {
+                    let group = self.get_group(board, x, y);
+                    let liberties = self.count_liberties(board, &group);
+
+                    // Mark group as visited
+                    for &(gx, gy) in &group {
+                        visited[gy][gx] = true;
+                    }
+
+                    // Groups with fewer liberties are easier to capture
+                    if liberties == 2 {
+                        potential_score += group.len() as i32 * 2;
+                    } else if liberties == 3 {
+                        potential_score += group.len() as i32;
+                    }
+                }
+            }
+        }
+
+        potential_score
+    }
+
+    fn get_group(&self, board: &Board, x: usize, y: usize) -> Vec<(usize, usize)> {
+        let stone = match board.get(x, y) {
+            Some(s) => s,
+            None => return vec![],
+        };
+
+        let mut group = Vec::new();
+        let mut visited = vec![vec![false; board.size()]; board.size()];
+        let mut stack = vec![(x, y)];
+
+        while let Some((cx, cy)) = stack.pop() {
+            if visited[cy][cx] {
+                continue;
+            }
+
+            visited[cy][cx] = true;
+            group.push((cx, cy));
+
+            let neighbors = self.get_neighbors(board, cx, cy);
+            for (nx, ny) in neighbors {
+                if !visited[ny][nx] && board.get(nx, ny) == Some(stone) {
+                    stack.push((nx, ny));
+                }
+            }
+        }
+
+        group
+    }
+
+    fn count_liberties(&self, board: &Board, group: &[(usize, usize)]) -> usize {
+        let mut liberties = std::collections::HashSet::new();
+
+        for &(x, y) in group {
+            let neighbors = self.get_neighbors(board, x, y);
+            for (nx, ny) in neighbors {
+                if board.get(nx, ny).is_none() {
+                    liberties.insert((nx, ny));
+                }
+            }
+        }
+
+        liberties.len()
+    }
+
+    fn get_neighbors(&self, board: &Board, x: usize, y: usize) -> Vec<(usize, usize)> {
+        let mut neighbors = Vec::new();
+
+        if x > 0 {
+            neighbors.push((x - 1, y));
+        }
+        if x < board.size() - 1 {
+            neighbors.push((x + 1, y));
+        }
+        if y > 0 {
+            neighbors.push((x, y - 1));
+        }
+        if y < board.size() - 1 {
+            neighbors.push((x, y + 1));
+        }
+
+        neighbors
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -97,7 +277,7 @@ impl MinimaxAI {
         let mut valid_moves = Vec::new();
         for y in 0..board.size() {
             for x in 0..board.size() {
-                if board.is_valid_move_for_stone(x, y, stone) {
+                if board.is_valid_move(x, y, stone) {
                     valid_moves.push((x, y));
                 }
             }
@@ -167,7 +347,7 @@ impl Player for MinimaxAI {
         let mut valid_moves = Vec::new();
         for y in 0..board.size() {
             for x in 0..board.size() {
-                if board.is_valid_move_for_stone(x, y, stone) {
+                if board.is_valid_move(x, y, stone) {
                     valid_moves.push((x, y));
                 }
             }
@@ -226,7 +406,7 @@ impl Mcts {
             let mut valid_moves = Vec::new();
             for y in 0..sim_board.size() {
                 for x in 0..sim_board.size() {
-                    if sim_board.is_valid_move(x, y) {
+                    if sim_board.is_valid_move(x, y, current_stone) {
                         valid_moves.push((x, y));
                     }
                 }
@@ -281,7 +461,7 @@ impl Player for Mcts {
         let mut valid_moves = Vec::new();
         for y in 0..board.size() {
             for x in 0..board.size() {
-                if board.is_valid_move_for_stone(x, y, stone) {
+                if board.is_valid_move(x, y, stone) {
                     valid_moves.push((x, y));
                 }
             }

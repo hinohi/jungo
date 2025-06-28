@@ -48,15 +48,8 @@ impl Board {
         self.grid[y][x]
     }
 
-    pub fn is_valid_move(&self, x: usize, y: usize) -> bool {
+    pub fn is_valid_move(&self, x: usize, y: usize, stone: Stone) -> bool {
         if x >= self.size || y >= self.size || self.grid[y][x].is_some() {
-            return false;
-        }
-        true
-    }
-
-    pub fn is_valid_move_for_stone(&self, x: usize, y: usize, stone: Stone) -> bool {
-        if !self.is_valid_move(x, y) {
             return false;
         }
 
@@ -90,7 +83,7 @@ impl Board {
     }
 
     pub fn place_stone(&mut self, x: usize, y: usize, stone: Stone) -> Result<(), &'static str> {
-        if !self.is_valid_move(x, y) {
+        if x >= self.size || y >= self.size || self.grid[y][x].is_some() {
             return Err("Invalid move");
         }
 
