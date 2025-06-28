@@ -11,5 +11,13 @@ path = "src/main.rs"
 name = "run_stats"
 path = "src/bin/run_stats.rs"
 
+[[bin]]
+name = "test_minimax"
+path = "src/bin/test_minimax.rs"
+
+[[bin]]
+name = "test_mcts"
+path = "src/bin/test_mcts.rs"
+
 [dependencies]
 rand = "0.8"
