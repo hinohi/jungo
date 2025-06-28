@@ -82,6 +82,42 @@ impl Board {
         !test_board.has_no_liberties(&self_group)
     }
 
+    pub fn is_valid_move_with_ko(
+        &self,
+        x: usize,
+        y: usize,
+        stone: Stone,
+        previous_board: &Board,
+    ) -> bool {
+        // First check if the move is valid without Ko
+        if !self.is_valid_move(x, y, stone) {
+            return false;
+        }
+
+        // Create a temporary board to test the move
+        let mut test_board = self.clone();
+        test_board.place_stone(x, y, stone).unwrap();
+
+        // Check if the resulting board would be identical to the previous board (Ko)
+        !self.boards_are_equal(&test_board, previous_board)
+    }
+
+    pub fn boards_are_equal(&self, board1: &Board, board2: &Board) -> bool {
+        if board1.size != board2.size {
+            return false;
+        }
+
+        for y in 0..board1.size {
+            for x in 0..board1.size {
+                if board1.grid[y][x] != board2.grid[y][x] {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
     pub fn place_stone(&mut self, x: usize, y: usize, stone: Stone) -> Result<(), &'static str> {
         if x >= self.size || y >= self.size || self.grid[y][x].is_some() {
             return Err("Invalid move");

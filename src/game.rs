@@ -5,6 +5,7 @@ pub struct Game {
     pub board: Board,
     pub current_turn: Stone,
     pub consecutive_passes: usize,
+    pub previous_board: Option<Board>,
 }
 
 impl Game {
@@ -13,6 +14,7 @@ impl Game {
             board: Board::new(board_size),
             current_turn: Stone::Black,
             consecutive_passes: 0,
+            previous_board: None,
         }
     }
 
@@ -33,21 +35,58 @@ impl Game {
             println!("{}'s turn ({})", current_player.name(), self.current_turn);
 
             match current_player.get_move(&self.board, self.current_turn) {
-                Some((x, y)) => match self.board.place_stone(x, y, self.current_turn) {
-                    Ok(_) => {
-                        self.consecutive_passes = 0;
-                        println!(
-                            "{} plays at {}{}",
-                            current_player.name(),
-                            (b'A' + x as u8) as char,
-                            self.board.size() - y
-                        );
+                Some((x, y)) => {
+                    // Check Ko rule before placing stone
+                    if let Some(ref prev_board) = self.previous_board {
+                        if self
+                            .board
+                            .is_valid_move_with_ko(x, y, self.current_turn, prev_board)
+                        {
+                            // Save current board state before making the move
+                            let board_before_move = self.board.clone();
+
+                            match self.board.place_stone(x, y, self.current_turn) {
+                                Ok(_) => {
+                                    self.consecutive_passes = 0;
+                                    self.previous_board = Some(board_before_move);
+                                    println!(
+                                        "{} plays at {}{}",
+                                        current_player.name(),
+                                        (b'A' + x as u8) as char,
+                                        self.board.size() - y
+                                    );
+                                }
+                                Err(e) => {
+                                    println!("Invalid move: {}", e);
+                                    continue;
+                                }
+                            }
+                        } else {
+                            println!("Invalid move: Ko rule violation!");
+                            continue;
+                        }
+                    } else {
+                        // First move, no Ko check needed
+                        let board_before_move = self.board.clone();
+
+                        match self.board.place_stone(x, y, self.current_turn) {
+                            Ok(_) => {
+                                self.consecutive_passes = 0;
+                                self.previous_board = Some(board_before_move);
+                                println!(
+                                    "{} plays at {}{}",
+                                    current_player.name(),
+                                    (b'A' + x as u8) as char,
+                                    self.board.size() - y
+                                );
+                            }
+                            Err(e) => {
+                                println!("Invalid move: {}", e);
+                                continue;
+                            }
+                        }
                     }
-                    Err(e) => {
-                        println!("Invalid move: {}", e);
-                        continue;
-                    }
-                },
+                }
                 None => {
                     println!("{} passes", current_player.name());
                     self.consecutive_passes += 1;
