@@ -74,7 +74,7 @@ mod tests {
         assert_eq!(board.get(1, 0), None);
         assert_eq!(board.get(2, 0), None);
         assert_eq!(board.get(1, 1), None);
-        assert_eq!(board.get_captured(), (0, 3));
+        assert_eq!(board.get_captured(), (3, 0));
     }
 
     #[test]
@@ -147,7 +147,7 @@ mod tests {
         board.place_stone(0, 0, Stone::White).unwrap();
 
         assert_eq!(board.get(0, 0), Some(Stone::White));
-        assert_eq!(board.get_captured(), (1, 0));
+        assert_eq!(board.get_captured(), (0, 1));
     }
 
     #[test]
@@ -162,7 +162,7 @@ mod tests {
         board.place_stone(4, 5, Stone::White).unwrap();
 
         assert_eq!(board.get(4, 4), None);
-        assert_eq!(board.get_captured(), (1, 0));
+        assert_eq!(board.get_captured(), (0, 1));
     }
 
     #[test]
@@ -211,7 +211,7 @@ mod tests {
             assert_eq!(board.get(i, 0), None);
             assert_eq!(board.get(i, 1), None);
         }
-        assert_eq!(board.get_captured(), (0, 8));
+        assert_eq!(board.get_captured(), (8, 0));
     }
 
     #[test]

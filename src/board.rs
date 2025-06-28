@@ -18,8 +18,8 @@ impl Stone {
 impl fmt::Display for Stone {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Stone::Black => write!(f, "●"),
-            Stone::White => write!(f, "○"),
+            Stone::Black => write!(f, "○"),
+            Stone::White => write!(f, "●"),
         }
     }
 }
@@ -99,8 +99,8 @@ impl Board {
         // Check for captures
         let captured = self.check_captures(x, y, stone);
         match stone {
-            Stone::Black => self.captured.1 += captured,
-            Stone::White => self.captured.0 += captured,
+            Stone::Black => self.captured.0 += captured,
+            Stone::White => self.captured.1 += captured,
         }
 
         Ok(())
