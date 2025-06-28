@@ -282,4 +282,110 @@ mod tests {
         assert!(board.is_valid_move_with_ko(3, 3, Stone::Black, &state1)); // Different from state1
         assert!(board.is_valid_move_with_ko(3, 3, Stone::Black, &state2)); // Different from state2
     }
+
+    #[test]
+    fn test_eye_detection() {
+        let mut board = Board::new(5);
+
+        // Create a simple eye for Black
+        //   0 1 2 3 4
+        // 0 ○ ○ · · ·
+        // 1 ○ · ○ · ·
+        // 2 · ○ · · ·
+        board.place_stone(0, 0, Stone::Black).unwrap();
+        board.place_stone(1, 0, Stone::Black).unwrap();
+        board.place_stone(0, 1, Stone::Black).unwrap();
+        board.place_stone(2, 1, Stone::Black).unwrap();
+        board.place_stone(1, 2, Stone::Black).unwrap();
+
+        // (1, 1) should be an eye for Black
+        assert!(board.is_eye(1, 1, Stone::Black));
+        assert!(!board.is_eye(1, 1, Stone::White));
+
+        // Empty space that's not surrounded is not an eye
+        assert!(!board.is_eye(3, 3, Stone::Black));
+    }
+
+    #[test]
+    fn test_corner_eye() {
+        let mut board = Board::new(5);
+
+        // Create a corner eye for White
+        //   0 1 2
+        // 0 · ● ·
+        // 1 ● ● ·
+        board.place_stone(1, 0, Stone::White).unwrap();
+        board.place_stone(0, 1, Stone::White).unwrap();
+        board.place_stone(1, 1, Stone::White).unwrap(); // Add diagonal to make it a proper eye
+
+        // (0, 0) should be an eye for White
+        assert!(board.is_eye(0, 0, Stone::White));
+        assert!(!board.is_eye(0, 0, Stone::Black));
+    }
+
+    #[test]
+    fn test_edge_eye() {
+        let mut board = Board::new(5);
+
+        // Create an edge eye for Black
+        //   0 1 2
+        // 0 ○ · ○
+        // 1 · ○ ·
+        board.place_stone(0, 0, Stone::Black).unwrap();
+        board.place_stone(2, 0, Stone::Black).unwrap();
+        board.place_stone(1, 1, Stone::Black).unwrap();
+
+        // (1, 0) should be an eye for Black
+        assert!(board.is_eye(1, 0, Stone::Black));
+    }
+
+    #[test]
+    fn test_false_eye() {
+        let mut board = Board::new(5);
+
+        // Create a false eye (too many opponent stones on diagonals)
+        //   0 1 2
+        // 0 ● ○ ●
+        // 1 ○ · ○
+        // 2 ● ○ ●
+        board.place_stone(1, 0, Stone::Black).unwrap();
+        board.place_stone(0, 1, Stone::Black).unwrap();
+        board.place_stone(2, 1, Stone::Black).unwrap();
+        board.place_stone(1, 2, Stone::Black).unwrap();
+
+        // Place opponent stones on diagonals
+        board.place_stone(0, 0, Stone::White).unwrap();
+        board.place_stone(2, 0, Stone::White).unwrap();
+        board.place_stone(0, 2, Stone::White).unwrap();
+        board.place_stone(2, 2, Stone::White).unwrap();
+
+        // (1, 1) should NOT be an eye for Black (false eye)
+        assert!(!board.is_eye(1, 1, Stone::Black));
+    }
+
+    #[test]
+    fn test_not_eye_when_not_fully_surrounded() {
+        let mut board = Board::new(5);
+
+        // Setup the problematic position from the game
+        //   A B C D E
+        // 5 · ● ● · ●
+        // 4 ● · ● ● ●
+        // White (●) to move, empty spaces at A5 and D5
+
+        // Place white stones
+        board.place_stone(1, 0, Stone::White).unwrap(); // B5
+        board.place_stone(2, 0, Stone::White).unwrap(); // C5
+        board.place_stone(4, 0, Stone::White).unwrap(); // E5
+        board.place_stone(0, 1, Stone::White).unwrap(); // A4
+        board.place_stone(2, 1, Stone::White).unwrap(); // C4
+        board.place_stone(3, 1, Stone::White).unwrap(); // D4
+        board.place_stone(4, 1, Stone::White).unwrap(); // E4
+
+        // A5 should NOT be an eye for White because it's at the edge/corner
+        // and doesn't have all necessary surrounding stones
+        assert!(!board.is_eye(0, 0, Stone::White)); // A5
+        assert!(!board.is_eye(3, 0, Stone::White)); // D5
+        assert!(!board.is_eye(1, 1, Stone::White)); // B4
+    }
 }

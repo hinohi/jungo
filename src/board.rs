@@ -118,6 +118,86 @@ impl Board {
         true
     }
 
+    pub fn count_eyes_for_color(&self, stone: Stone) -> usize {
+        let mut eye_count = 0;
+
+        for y in 0..self.size {
+            for x in 0..self.size {
+                if self.grid[y][x].is_none() && self.is_eye(x, y, stone) {
+                    eye_count += 1;
+                }
+            }
+        }
+
+        eye_count
+    }
+
+    pub fn is_eye(&self, x: usize, y: usize, stone: Stone) -> bool {
+        // Check if a position is an eye for the given stone color
+        if self.grid[y][x].is_some() {
+            return false; // Already occupied
+        }
+
+        // Get all neighbors
+        let neighbors = self.get_neighbors(x, y);
+
+        // All neighbors must be the same color
+        for (nx, ny) in &neighbors {
+            match self.get(*nx, *ny) {
+                Some(neighbor_stone) if neighbor_stone != stone => return false,
+                None => return false, // Empty neighbor means not an eye
+                _ => continue,
+            }
+        }
+
+        // Check diagonal neighbors for corner/edge cases
+        let diagonal_positions = self.get_diagonal_neighbors(x, y);
+        let diagonal_count = diagonal_positions.len();
+        let mut opponent_diagonal_count = 0;
+
+        for (dx, dy) in diagonal_positions {
+            if let Some(diagonal_stone) = self.get(dx, dy) {
+                if diagonal_stone != stone {
+                    opponent_diagonal_count += 1;
+                }
+            }
+        }
+
+        // Eye rules based on position:
+        // - Corner (1 diagonal): need friendly stone on diagonal
+        // - Edge (2 diagonals): need all friendly stones on diagonals
+        // - Center (4 diagonals): max 1 opponent stone on diagonals
+        match diagonal_count {
+            1 => opponent_diagonal_count == 0, // Corner
+            2 => opponent_diagonal_count == 0, // Edge
+            4 => opponent_diagonal_count <= 1, // Center
+            _ => false,
+        }
+    }
+
+    fn get_diagonal_neighbors(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
+        let mut diagonals = Vec::new();
+
+        // Top-left
+        if x > 0 && y > 0 {
+            diagonals.push((x - 1, y - 1));
+        }
+        // Top-right
+        if x < self.size - 1 && y > 0 {
+            diagonals.push((x + 1, y - 1));
+        }
+        // Bottom-left
+        if x > 0 && y < self.size - 1 {
+            diagonals.push((x - 1, y + 1));
+        }
+        // Bottom-right
+        if x < self.size - 1 && y < self.size - 1 {
+            diagonals.push((x + 1, y + 1));
+        }
+
+        diagonals
+    }
+
     pub fn place_stone(&mut self, x: usize, y: usize, stone: Stone) -> Result<(), &'static str> {
         if x >= self.size || y >= self.size || self.grid[y][x].is_some() {
             return Err("Invalid move");
