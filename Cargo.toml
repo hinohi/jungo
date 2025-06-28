@@ -3,5 +3,13 @@ name = "jungo"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "jungo"
+path = "src/main.rs"
+
+[[bin]]
+name = "run_stats"
+path = "src/bin/run_stats.rs"
+
 [dependencies]
 rand = "0.8"
