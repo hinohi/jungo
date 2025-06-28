@@ -16,6 +16,10 @@ name = "test_minimax"
 path = "src/bin/test_minimax.rs"
 
 [[bin]]
+name = "test_mc"
+path = "src/bin/test_mc.rs"
+
+[[bin]]
 name = "test_mcts"
 path = "src/bin/test_mcts.rs"
 

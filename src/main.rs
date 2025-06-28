@@ -3,7 +3,7 @@ mod board;
 mod game;
 mod player;
 
-use crate::ai::{Mcts, MinimaxAI, RandomAI};
+use crate::ai::{Mcts, MinimaxAI, MonteCarloAI, RandomAI};
 use crate::game::Game;
 use crate::player::{HumanPlayer, Player};
 use std::io::{self, Write};
@@ -79,9 +79,11 @@ fn select_ai_player() -> Box<dyn Player> {
         println!("1. Random AI");
         println!("2. Minimax AI (depth 3)");
         println!("3. Minimax AI (depth 5)");
-        println!("4. MCTS AI (1 second)");
-        println!("5. MCTS AI (3 seconds)");
-        print!("Enter your choice (1-5): ");
+        println!("4. Monte Carlo AI (1 second)");
+        println!("5. Monte Carlo AI (3 seconds)");
+        println!("6. MCTS AI (1 second)");
+        println!("7. MCTS AI (3 seconds)");
+        print!("Enter your choice (1-7): ");
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -91,8 +93,10 @@ fn select_ai_player() -> Box<dyn Player> {
             "1" => return Box::new(RandomAI::new()),
             "2" => return Box::new(MinimaxAI::new(3)),
             "3" => return Box::new(MinimaxAI::new(5)),
-            "4" => return Box::new(Mcts::new(1)),
-            "5" => return Box::new(Mcts::new(3)),
+            "4" => return Box::new(MonteCarloAI::new(1)),
+            "5" => return Box::new(MonteCarloAI::new(3)),
+            "6" => return Box::new(Mcts::new(1)),
+            "7" => return Box::new(Mcts::new(3)),
             _ => println!("Invalid choice. Please try again.\n"),
         }
     }
