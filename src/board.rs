@@ -24,41 +24,83 @@ impl fmt::Display for Stone {
     }
 }
 
+// Fast board using flat array and u8 representation
 #[derive(Debug, Clone)]
 pub struct Board {
     size: usize,
-    grid: Vec<Vec<Option<Stone>>>,
+    grid: Vec<u8>,            // 0 = empty, 1 = black, 2 = white
     captured: (usize, usize), // (black_captured, white_captured)
 }
+
+const EMPTY: u8 = 0;
+const BLACK: u8 = 1;
+const WHITE: u8 = 2;
 
 impl Board {
     pub fn new(size: usize) -> Self {
         Board {
             size,
-            grid: vec![vec![None; size]; size],
+            grid: vec![EMPTY; size * size],
             captured: (0, 0),
         }
     }
 
+    #[inline(always)]
+    fn index(&self, x: usize, y: usize) -> usize {
+        y * self.size + x
+    }
+
+    #[inline(always)]
     pub fn size(&self) -> usize {
         self.size
     }
 
+    #[inline(always)]
     pub fn get(&self, x: usize, y: usize) -> Option<Stone> {
-        self.grid[y][x]
+        match self.grid[self.index(x, y)] {
+            BLACK => Some(Stone::Black),
+            WHITE => Some(Stone::White),
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    fn get_raw(&self, x: usize, y: usize) -> u8 {
+        self.grid[self.index(x, y)]
+    }
+
+    #[inline(always)]
+    fn stone_to_u8(stone: Stone) -> u8 {
+        match stone {
+            Stone::Black => BLACK,
+            Stone::White => WHITE,
+        }
+    }
+
+    #[inline(always)]
+    fn opposite_u8(stone_u8: u8) -> u8 {
+        match stone_u8 {
+            BLACK => WHITE,
+            WHITE => BLACK,
+            _ => EMPTY,
+        }
     }
 
     pub fn is_valid_move(&self, x: usize, y: usize, stone: Stone) -> bool {
-        if x >= self.size || y >= self.size || self.grid[y][x].is_some() {
+        if x >= self.size || y >= self.size || self.get_raw(x, y) != EMPTY {
             return false;
         }
 
+        let stone_u8 = Self::stone_to_u8(stone);
+        let opponent_u8 = Self::opposite_u8(stone_u8);
+
         // Fast path: check if we would capture opponent stones
-        let opponent = stone.opposite();
         let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
 
         for &(nx, ny) in &neighbors[..neighbor_count] {
-            if self.get(nx, ny) == Some(opponent) {
+            let neighbor_stone = self.get_raw(nx, ny);
+
+            if neighbor_stone == opponent_u8 {
                 // Check if opponent group would be captured after our move
                 if self.would_capture_after_move(nx, ny, x, y) {
                     return true; // Capturing move is always valid
@@ -68,14 +110,14 @@ impl Board {
 
         // Check if our stone would have at least one liberty
         for &(nx, ny) in &neighbors[..neighbor_count] {
-            if self.get(nx, ny).is_none() {
+            if self.get_raw(nx, ny) == EMPTY {
                 return true; // Has an empty neighbor
             }
         }
 
         // Check if we connect to a friendly group that has other liberties
         for &(nx, ny) in &neighbors[..neighbor_count] {
-            if self.get(nx, ny) == Some(stone) {
+            if self.get_raw(nx, ny) == stone_u8 {
                 // Check if the friendly group has liberties other than (x,y)
                 if self.group_has_liberty_except(nx, ny, x, y) {
                     return true;
@@ -94,16 +136,16 @@ impl Board {
         block_x: usize,
         block_y: usize,
     ) -> bool {
-        let stone = self.get(group_x, group_y);
-        if stone.is_none() {
+        let stone_u8 = self.get_raw(group_x, group_y);
+        if stone_u8 == EMPTY {
             return false;
         }
 
-        let mut visited = vec![vec![false; self.size]; self.size];
+        let mut visited = vec![false; self.size * self.size];
         !self.has_liberty_except_recursive(
             group_x,
             group_y,
-            stone.unwrap(),
+            stone_u8,
             block_x,
             block_y,
             &mut visited,
@@ -118,175 +160,65 @@ impl Board {
         except_x: usize,
         except_y: usize,
     ) -> bool {
-        let stone = self.get(x, y);
-        if stone.is_none() {
+        let stone_u8 = self.get_raw(x, y);
+        if stone_u8 == EMPTY {
             return false;
         }
 
-        let mut visited = vec![vec![false; self.size]; self.size];
-        self.has_liberty_except_recursive(x, y, stone.unwrap(), except_x, except_y, &mut visited)
+        let mut visited = vec![false; self.size * self.size];
+        self.has_liberty_except_recursive(x, y, stone_u8, except_x, except_y, &mut visited)
     }
 
     fn has_liberty_except_recursive(
         &self,
         x: usize,
         y: usize,
-        stone: Stone,
+        stone_u8: u8,
         except_x: usize,
         except_y: usize,
-        visited: &mut Vec<Vec<bool>>,
+        visited: &mut Vec<bool>,
     ) -> bool {
-        if visited[y][x] {
+        let idx = self.index(x, y);
+        if visited[idx] {
             return false;
         }
-        visited[y][x] = true;
+        visited[idx] = true;
 
         let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
         for &(nx, ny) in &neighbors[..neighbor_count] {
-            match self.get(nx, ny) {
-                None => {
-                    if (nx, ny) != (except_x, except_y) {
-                        return true; // Found a liberty
-                    }
+            let neighbor_stone = self.get_raw(nx, ny);
+
+            if neighbor_stone == EMPTY {
+                if (nx, ny) != (except_x, except_y) {
+                    return true; // Found a liberty
                 }
-                Some(s) if s == stone => {
-                    if self.has_liberty_except_recursive(nx, ny, stone, except_x, except_y, visited)
-                    {
-                        return true;
-                    }
-                }
-                _ => {} // Opponent stone
+            } else if neighbor_stone == stone_u8
+                && self.has_liberty_except_recursive(nx, ny, stone_u8, except_x, except_y, visited)
+            {
+                return true;
             }
         }
 
         false
     }
 
-    pub fn is_valid_move_with_ko(
-        &self,
-        x: usize,
-        y: usize,
-        stone: Stone,
-        previous_board: &Board,
-    ) -> bool {
-        // First check if the move is valid without Ko
-        if !self.is_valid_move(x, y, stone) {
-            return false;
-        }
-
-        // Create a temporary board to test the move
-        let mut test_board = self.clone();
-        test_board.place_stone(x, y, stone).unwrap();
-
-        // Check if the resulting board would be identical to the previous board (Ko)
-        !self.boards_are_equal(&test_board, previous_board)
-    }
-
-    pub fn boards_are_equal(&self, board1: &Board, board2: &Board) -> bool {
-        if board1.size != board2.size {
-            return false;
-        }
-
-        for y in 0..board1.size {
-            for x in 0..board1.size {
-                if board1.grid[y][x] != board2.grid[y][x] {
-                    return false;
-                }
-            }
-        }
-
-        true
-    }
-
-    pub fn count_eyes_for_color(&self, stone: Stone) -> usize {
-        let mut eye_count = 0;
-
-        for y in 0..self.size {
-            for x in 0..self.size {
-                if self.grid[y][x].is_none() && self.is_eye(x, y, stone) {
-                    eye_count += 1;
-                }
-            }
-        }
-
-        eye_count
-    }
-
-    pub fn is_eye(&self, x: usize, y: usize, stone: Stone) -> bool {
-        // Check if a position is an eye for the given stone color
-        if self.grid[y][x].is_some() {
-            return false; // Already occupied
-        }
-
-        // Get all neighbors
-        let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
-
-        // All neighbors must be the same color
-        for &(nx, ny) in &neighbors[..neighbor_count] {
-            match self.get(nx, ny) {
-                Some(neighbor_stone) if neighbor_stone != stone => return false,
-                None => return false, // Empty neighbor means not an eye
-                _ => continue,
-            }
-        }
-
-        // Check diagonal neighbors for corner/edge cases
-        let diagonal_positions = self.get_diagonal_neighbors(x, y);
-        let diagonal_count = diagonal_positions.len();
-        let mut opponent_diagonal_count = 0;
-
-        for (dx, dy) in diagonal_positions {
-            if let Some(diagonal_stone) = self.get(dx, dy) {
-                if diagonal_stone != stone {
-                    opponent_diagonal_count += 1;
-                }
-            }
-        }
-
-        // Eye rules based on position:
-        // - Corner (1 diagonal): need friendly stone on diagonal
-        // - Edge (2 diagonals): need all friendly stones on diagonals
-        // - Center (4 diagonals): max 1 opponent stone on diagonals
-        match diagonal_count {
-            1 => opponent_diagonal_count == 0, // Corner
-            2 => opponent_diagonal_count == 0, // Edge
-            4 => opponent_diagonal_count <= 1, // Center
-            _ => false,
-        }
-    }
-
-    fn get_diagonal_neighbors(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
-        let mut diagonals = Vec::new();
-
-        // Top-left
-        if x > 0 && y > 0 {
-            diagonals.push((x - 1, y - 1));
-        }
-        // Top-right
-        if x < self.size - 1 && y > 0 {
-            diagonals.push((x + 1, y - 1));
-        }
-        // Bottom-left
-        if x > 0 && y < self.size - 1 {
-            diagonals.push((x - 1, y + 1));
-        }
-        // Bottom-right
-        if x < self.size - 1 && y < self.size - 1 {
-            diagonals.push((x + 1, y + 1));
-        }
-
-        diagonals
-    }
-
     pub fn place_stone(&mut self, x: usize, y: usize, stone: Stone) -> Result<(), &'static str> {
-        if x >= self.size || y >= self.size || self.grid[y][x].is_some() {
-            return Err("Invalid move");
+        if x >= self.size || y >= self.size {
+            return Err("Position out of bounds");
         }
 
-        self.grid[y][x] = Some(stone);
+        if self.get_raw(x, y) != EMPTY {
+            return Err("Position already occupied");
+        }
 
-        // Check for captures
+        let stone_u8 = Self::stone_to_u8(stone);
+        let idx = self.index(x, y);
+        self.grid[idx] = stone_u8;
+
+        // Check and remove captured stones
         let captured = self.check_captures(x, y, stone);
+
+        // Update capture count
         match stone {
             Stone::Black => self.captured.0 += captured,
             Stone::White => self.captured.1 += captured,
@@ -296,19 +228,21 @@ impl Board {
     }
 
     fn check_captures(&mut self, x: usize, y: usize, stone: Stone) -> usize {
-        let opponent = stone.opposite();
+        let stone_u8 = Self::stone_to_u8(stone);
+        let opponent_u8 = Self::opposite_u8(stone_u8);
         let mut total_captured = 0;
 
         // Check adjacent positions
         let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
 
         for &(nx, ny) in &neighbors[..neighbor_count] {
-            if self.get(nx, ny) == Some(opponent) {
+            if self.get_raw(nx, ny) == opponent_u8 {
                 let group = self.get_group(nx, ny);
                 if self.has_no_liberties(&group) {
                     // Remove the captured group
                     for &(gx, gy) in &group {
-                        self.grid[gy][gx] = None;
+                        let idx = self.index(gx, gy);
+                        self.grid[idx] = EMPTY;
                     }
                     total_captured += group.len();
                 }
@@ -320,14 +254,15 @@ impl Board {
         if self.has_no_liberties(&self_group) {
             // Remove the self-captured group
             for &(gx, gy) in &self_group {
-                self.grid[gy][gx] = None;
+                let idx = self.index(gx, gy);
+                self.grid[idx] = EMPTY;
             }
         }
 
         total_captured
     }
 
-    // More efficient version that fills a provided array
+    #[inline(always)]
     fn get_neighbors_array(&self, x: usize, y: usize) -> ([(usize, usize); 4], usize) {
         let mut neighbors = [(0, 0); 4];
         let mut count = 0;
@@ -353,26 +288,28 @@ impl Board {
     }
 
     fn get_group(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
-        let stone = match self.get(x, y) {
-            Some(s) => s,
-            None => return vec![],
-        };
+        let stone_u8 = self.get_raw(x, y);
+        if stone_u8 == EMPTY {
+            return vec![];
+        }
 
         let mut group = Vec::new();
-        let mut visited = vec![vec![false; self.size]; self.size];
+        let mut visited = vec![false; self.size * self.size];
         let mut stack = vec![(x, y)];
 
         while let Some((cx, cy)) = stack.pop() {
-            if visited[cy][cx] {
+            let idx = self.index(cx, cy);
+            if visited[idx] {
                 continue;
             }
 
-            visited[cy][cx] = true;
+            visited[idx] = true;
             group.push((cx, cy));
 
             let (neighbors, neighbor_count) = self.get_neighbors_array(cx, cy);
             for &(nx, ny) in &neighbors[..neighbor_count] {
-                if !visited[ny][nx] && self.get(nx, ny) == Some(stone) {
+                let nidx = self.index(nx, ny);
+                if !visited[nidx] && self.get_raw(nx, ny) == stone_u8 {
                     stack.push((nx, ny));
                 }
             }
@@ -385,7 +322,7 @@ impl Board {
         for &(x, y) in group {
             let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
             for &(nx, ny) in &neighbors[..neighbor_count] {
-                if self.get(nx, ny).is_none() {
+                if self.get_raw(nx, ny) == EMPTY {
                     return false;
                 }
             }
@@ -397,69 +334,171 @@ impl Board {
         self.captured
     }
 
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        for row in &self.grid {
-            for cell in row {
-                if cell.is_some() {
-                    return false;
+    pub fn is_eye(&self, x: usize, y: usize, stone: Stone) -> bool {
+        if self.get_raw(x, y) != EMPTY {
+            return false; // Already occupied
+        }
+
+        let stone_u8 = Self::stone_to_u8(stone);
+
+        // Get all neighbors
+        let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
+
+        // All neighbors must be the same color
+        for &(nx, ny) in &neighbors[..neighbor_count] {
+            let neighbor_stone = self.get_raw(nx, ny);
+            if neighbor_stone != stone_u8 {
+                return false; // Different color or empty
+            }
+        }
+
+        // Check diagonal neighbors for corner/edge cases
+        let diagonal_positions = self.get_diagonal_neighbors(x, y);
+        let diagonal_count = diagonal_positions.len();
+        let mut opponent_diagonal_count = 0;
+
+        for &(dx, dy) in &diagonal_positions {
+            let diag_stone = self.get_raw(dx, dy);
+            if diag_stone != EMPTY && diag_stone != stone_u8 {
+                opponent_diagonal_count += 1;
+            }
+        }
+
+        // Eye rules based on position:
+        match diagonal_count {
+            1 => {
+                // Corner: the single diagonal must be our color
+                for &(dx, dy) in &diagonal_positions {
+                    if self.get_raw(dx, dy) != stone_u8 {
+                        return false;
+                    }
+                }
+                true
+            }
+            2 => {
+                // Edge: no opponent stones on diagonals
+                opponent_diagonal_count == 0
+            }
+            4 => {
+                // Center: max 1 opponent stone on diagonals
+                opponent_diagonal_count <= 1
+            }
+            _ => false,
+        }
+    }
+
+    fn get_diagonal_neighbors(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
+        let mut diagonals = Vec::with_capacity(4);
+
+        // Top-left
+        if x > 0 && y > 0 {
+            diagonals.push((x - 1, y - 1));
+        }
+        // Top-right
+        if x < self.size - 1 && y > 0 {
+            diagonals.push((x + 1, y - 1));
+        }
+        // Bottom-left
+        if x > 0 && y < self.size - 1 {
+            diagonals.push((x - 1, y + 1));
+        }
+        // Bottom-right
+        if x < self.size - 1 && y < self.size - 1 {
+            diagonals.push((x + 1, y + 1));
+        }
+
+        diagonals
+    }
+
+    pub fn count_eyes_for_color(&self, stone: Stone) -> usize {
+        let mut eye_count = 0;
+
+        for y in 0..self.size {
+            for x in 0..self.size {
+                if self.is_eye(x, y, stone) {
+                    eye_count += 1;
                 }
             }
         }
-        true
+
+        eye_count
+    }
+
+    // Additional methods for compatibility
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.grid.iter().all(|&cell| cell == EMPTY)
     }
 
     pub fn count_stones(&self) -> (usize, usize) {
-        let mut black = 0;
-        let mut white = 0;
+        let mut black_count = 0;
+        let mut white_count = 0;
 
-        for row in &self.grid {
-            for cell in row {
-                match cell {
-                    Some(Stone::Black) => black += 1,
-                    Some(Stone::White) => white += 1,
-                    None => {}
-                }
+        for &cell in &self.grid {
+            match cell {
+                BLACK => black_count += 1,
+                WHITE => white_count += 1,
+                _ => {}
             }
         }
 
-        (black, white)
+        (black_count, white_count)
+    }
+
+    pub fn is_valid_move_with_ko(
+        &self,
+        x: usize,
+        y: usize,
+        stone: Stone,
+        previous_board: &Board,
+    ) -> bool {
+        if !self.is_valid_move(x, y, stone) {
+            return false;
+        }
+
+        // Simulate the move to check for Ko
+        let mut test_board = self.clone();
+        if test_board.place_stone(x, y, stone).is_err() {
+            return false;
+        }
+
+        // Check if the resulting board would be the same as the previous board
+        !self.boards_are_equal(&test_board, previous_board)
+    }
+
+    pub fn boards_are_equal(&self, board1: &Board, board2: &Board) -> bool {
+        if board1.size != board2.size {
+            return false;
+        }
+
+        board1.grid == board2.grid
     }
 }
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Column labels
+        // Print column labels
         write!(f, "   ")?;
-        for i in 0..self.size {
-            write!(f, "{} ", (b'A' + i as u8) as char)?;
+        for x in 0..self.size {
+            write!(f, "{:2}", x)?;
         }
         writeln!(f)?;
 
-        // Board rows
         for y in 0..self.size {
-            write!(f, "{:2} ", self.size - y)?;
+            write!(f, "{:2} ", y)?;
             for x in 0..self.size {
                 match self.get(x, y) {
-                    Some(stone) => write!(f, "{} ", stone)?,
-                    None => write!(f, "· ")?,
+                    None => write!(f, " .")?,
+                    Some(stone) => write!(f, " {}", stone)?,
                 }
             }
-            writeln!(f, "{:2}", self.size - y)?;
+            writeln!(f)?;
         }
 
-        // Column labels again
-        write!(f, "   ")?;
-        for i in 0..self.size {
-            write!(f, "{} ", (b'A' + i as u8) as char)?;
-        }
-        writeln!(f)?;
-
-        // Captured stones
         let (black_captured, white_captured) = self.captured;
         writeln!(
             f,
-            "\nCaptured: Black {} - White {}",
+            "Captured: Black={}, White={}",
             black_captured, white_captured
         )?;
 

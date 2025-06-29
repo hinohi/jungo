@@ -1,6 +1,6 @@
 use crate::board::{Board, Stone};
 use crate::player::Player;
-use rand::Rng;
+use rand::{thread_rng, Rng};
 
 pub struct RandomAI {
     name: String,
@@ -25,20 +25,18 @@ impl Player for RandomAI {
         &self.name
     }
 
-    fn get_move(&self, board: &Board, _stone: Stone) -> Option<(usize, usize)> {
-        let mut valid_moves = Vec::new();
-        let mut non_eye_moves = Vec::new();
-        let mut eye_moves = Vec::new();
+    fn get_move(&self, board: &Board, stone: Stone) -> Option<(usize, usize)> {
+        let size = board.size();
+        let mut valid_moves = Vec::with_capacity(size * size);
+        let mut non_eye_moves = Vec::with_capacity(size * size);
 
         // Collect all valid moves and categorize them
-        for y in 0..board.size() {
-            for x in 0..board.size() {
-                if board.is_valid_move(x, y, _stone) {
+        for y in 0..size {
+            for x in 0..size {
+                if board.is_valid_move(x, y, stone) {
                     valid_moves.push((x, y));
 
-                    if board.is_eye(x, y, _stone) {
-                        eye_moves.push((x, y));
-                    } else {
+                    if !board.is_eye(x, y, stone) {
                         non_eye_moves.push((x, y));
                     }
                 }
@@ -51,26 +49,25 @@ impl Player for RandomAI {
         }
 
         // Count total eyes for our color
-        let total_eyes = board.count_eyes_for_color(_stone);
+        let total_eyes = board.count_eyes_for_color(stone);
 
         // If we have more than 2 eyes, we can fill some
-        if total_eyes > 2 && !eye_moves.is_empty() {
+        let mut rng = thread_rng();
+        if total_eyes > 2 && !valid_moves.is_empty() {
             // Prefer non-eye moves, but also consider filling excess eyes
             if !non_eye_moves.is_empty() {
                 // 80% chance to play non-eye move, 20% to fill an eye
-                let mut rng = rand::thread_rng();
                 if rng.gen_bool(0.8) {
                     let index = rng.gen_range(0..non_eye_moves.len());
                     return Some(non_eye_moves[index]);
                 } else {
-                    let index = rng.gen_range(0..eye_moves.len());
-                    return Some(eye_moves[index]);
+                    let index = rng.gen_range(0..valid_moves.len());
+                    return Some(valid_moves[index]);
                 }
             } else {
                 // Only eye moves available, and we have more than 2 eyes, so fill one
-                let mut rng = rand::thread_rng();
-                let index = rng.gen_range(0..eye_moves.len());
-                return Some(eye_moves[index]);
+                let index = rng.gen_range(0..valid_moves.len());
+                return Some(valid_moves[index]);
             }
         }
 
@@ -80,7 +77,6 @@ impl Player for RandomAI {
         }
 
         // Play a non-eye move
-        let mut rng = rand::thread_rng();
         let index = rng.gen_range(0..non_eye_moves.len());
         Some(non_eye_moves[index])
     }
