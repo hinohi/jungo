@@ -23,5 +23,29 @@ path = "src/bin/test_mc.rs"
 name = "test_mcts"
 path = "src/bin/test_mcts.rs"
 
+[[bin]]
+name = "mcts_stats"
+path = "src/bin/mcts_stats.rs"
+
+[[bin]]
+name = "mcts_debug"
+path = "src/bin/mcts_debug.rs"
+
+[[bin]]
+name = "mcts_test_simple"
+path = "src/bin/mcts_test_simple.rs"
+
+[[bin]]
+name = "mcts_vs_mc"
+path = "src/bin/mcts_vs_mc.rs"
+
+[[bin]]
+name = "quick_test"
+path = "src/bin/quick_test.rs"
+
+[[bin]]
+name = "final_test"
+path = "src/bin/final_test.rs"
+
 [dependencies]
 rand = "0.8"

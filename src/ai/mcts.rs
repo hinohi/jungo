@@ -1,4 +1,4 @@
-use crate::ai::RandomAI;
+use crate::ai::LightRandomAI;
 use crate::board::{Board, Stone};
 use crate::player::Player;
 use std::cell::RefCell;
@@ -9,28 +9,25 @@ use std::time::{Duration, Instant};
 struct MctsNode {
     visits: u32,
     wins: f64,
-    move_pos: Option<(usize, usize)>,
-    stone: Stone,
+    move_pos: Option<(usize, usize)>, // The move that led to this position (None for root)
+    player_to_move: Stone,            // Whose turn it is to play FROM this position
     children: Vec<Rc<RefCell<MctsNode>>>,
     untried_moves: Vec<(usize, usize)>,
-    board_before_move: Option<Board>,
 }
 
 impl MctsNode {
     fn new(
-        stone: Stone,
+        player_to_move: Stone,
         move_pos: Option<(usize, usize)>,
         available_moves: Vec<(usize, usize)>,
-        board_before_move: Option<Board>,
     ) -> Self {
         MctsNode {
             visits: 0,
             wins: 0.0,
             move_pos,
-            stone,
+            player_to_move,
             children: Vec::new(),
             untried_moves: available_moves,
-            board_before_move,
         }
     }
 
@@ -60,7 +57,7 @@ impl MctsNode {
             .cloned()
     }
 
-    fn expand(&mut self, board: &Board, parent_stone: Stone) -> Option<Rc<RefCell<MctsNode>>> {
+    fn expand(&mut self, board: &Board, current_player: Stone) -> Option<Rc<RefCell<MctsNode>>> {
         if self.untried_moves.is_empty() {
             return None;
         }
@@ -69,25 +66,22 @@ impl MctsNode {
         let idx = rand::random::<usize>() % self.untried_moves.len();
         let chosen_move = self.untried_moves.remove(idx);
 
-        // Get valid moves for the child node considering Ko rule
+        // Get valid moves for the child node
         let mut child_board = board.clone();
+        // Place stone for the current player (whose turn it is from this node)
         if child_board
-            .place_stone(chosen_move.0, chosen_move.1, parent_stone)
+            .place_stone(chosen_move.0, chosen_move.1, current_player)
             .is_ok()
         {
-            let child_stone = parent_stone.opposite();
-            // Use the board before this move as the previous board for Ko rule checking
-            let child_moves = if let Some(ref board_before) = self.board_before_move {
-                get_valid_moves_with_ko(&child_board, child_stone, Some(board_before))
-            } else {
-                get_valid_moves_with_ko(&child_board, child_stone, Some(board))
-            };
+            // Child will be opponent's turn
+            let child_stone = current_player.opposite();
+            // For Ko rule: after we make a move, the board before that move is the current board
+            let child_moves = get_valid_moves_with_ko(&child_board, child_stone, Some(board));
 
             let child_node = Rc::new(RefCell::new(MctsNode::new(
                 child_stone,
                 Some(chosen_move),
                 child_moves,
-                Some(board.clone()),
             )));
 
             self.children.push(child_node.clone());
@@ -122,35 +116,24 @@ impl Mcts {
         let mut sim_board = board.clone();
         let mut current_turn = stone;
         let mut consecutive_passes = 0;
-        let mut previous_board: Option<Board> = Some(board.clone());
 
-        let random1 = RandomAI::new();
-        let random2 = RandomAI::new();
+        // Use lightweight random players for faster simulation
+        let mut random1 = LightRandomAI::new();
+        let mut random2 = LightRandomAI::new();
 
         let mut moves = 0;
-        let max_moves = board.size() * board.size() * 3;
+        let max_moves = board.size() * board.size(); // Further reduced
 
         loop {
-            let current_player: &dyn Player = match current_turn {
-                s if s == stone => &random1,
-                _ => &random2,
+            let valid_move = match current_turn {
+                s if s == stone => random1.get_fast_move(&sim_board, current_turn),
+                _ => random2.get_fast_move(&sim_board, current_turn),
             };
 
-            match current_player.get_move(&sim_board, current_turn) {
+            match valid_move {
                 Some((x, y)) => {
-                    // Check Ko rule if we have a previous board
-                    let is_valid = if let Some(ref prev_board) = previous_board {
-                        sim_board.is_valid_move_with_ko(x, y, current_turn, prev_board)
-                    } else {
-                        sim_board.is_valid_move(x, y, current_turn)
-                    };
-
-                    if is_valid {
-                        let board_before_move = sim_board.clone();
-                        if sim_board.place_stone(x, y, current_turn).is_ok() {
-                            consecutive_passes = 0;
-                            previous_board = Some(board_before_move);
-                        }
+                    if sim_board.place_stone(x, y, current_turn).is_ok() {
+                        consecutive_passes = 0;
                     }
                 }
                 None => {
@@ -207,15 +190,16 @@ impl Mcts {
             return Some(valid_moves[0]);
         }
 
-        let root = Rc::new(RefCell::new(MctsNode::new(stone, None, valid_moves, None)));
+        let root = Rc::new(RefCell::new(MctsNode::new(stone, None, valid_moves)));
         let start_time = Instant::now();
-        let mut iterations = 0;
+        let mut _iterations = 0;
 
         while start_time.elapsed() < self.time_limit {
             let mut current_board = board.clone();
             let mut current_node = root.clone();
             let mut path = vec![current_node.clone()];
-            let mut current_stone = stone;
+            // Track whose turn it is to play from the current position
+            let mut current_player = stone;
             let mut board_history = vec![board.clone()];
 
             // Selection phase - traverse tree using UCT
@@ -230,11 +214,13 @@ impl Mcts {
                 if let Some(child) = node.select_child(self.exploration) {
                     let child_move = child.borrow().move_pos.unwrap();
                     let board_before_move = current_board.clone();
+                    // Play move for current player
                     current_board
-                        .place_stone(child_move.0, child_move.1, current_stone)
+                        .place_stone(child_move.0, child_move.1, current_player)
                         .unwrap();
                     board_history.push(board_before_move);
-                    current_stone = current_stone.opposite();
+                    // Now it's opponent's turn
+                    current_player = current_player.opposite();
                     drop(node);
                     current_node = child;
                     path.push(current_node.clone());
@@ -247,32 +233,43 @@ impl Mcts {
             // Expansion phase - add new child if possible
             if let Some(new_child) = current_node
                 .borrow_mut()
-                .expand(&current_board, current_stone)
+                .expand(&current_board, current_player)
             {
                 let child_move = new_child.borrow().move_pos.unwrap();
                 current_board
-                    .place_stone(child_move.0, child_move.1, current_stone)
+                    .place_stone(child_move.0, child_move.1, current_player)
                     .unwrap();
-                current_stone = current_stone.opposite();
+                // After expansion, it's opponent's turn for simulation
+                current_player = current_player.opposite();
                 path.push(new_child);
             }
 
             // Simulation phase - play out random game
-            let result = self.simulate(&current_board, current_stone);
+            // current_player is whose turn it is to play from current position
+            let result = self.simulate(&current_board, current_player);
 
             // Backpropagation phase - update all nodes in path
-            for (i, node) in path.iter().enumerate() {
-                let node_stone = node.borrow().stone;
-                // Invert result for opponent's nodes
-                let node_result = if (i % 2 == 0) == (node_stone == stone) {
-                    result
+            // Result is from the perspective of the player who moves first in simulation
+            // We propagate the result up the tree, flipping perspective at each level
+            let simulation_winner = if result > 0.5 {
+                current_player
+            } else {
+                current_player.opposite()
+            };
+
+            for node in path.iter() {
+                let node_player = node.borrow().player_to_move;
+                // This node represents a position where node_player is about to move
+                // If the simulation winner is node_player, this is a good position for them
+                let node_result = if node_player == simulation_winner {
+                    1.0
                 } else {
-                    1.0 - result
+                    0.0
                 };
                 node.borrow_mut().update(node_result);
             }
 
-            iterations += 1;
+            _iterations += 1;
         }
 
         // Select best move based on visit count
@@ -285,14 +282,18 @@ impl Mcts {
 
         let best_move = best_child.borrow().move_pos;
 
-        // Debug output
-        println!(
-            "MCTS: {} iterations, best move visits: {}/{} (win rate: {:.1}%)",
-            iterations,
-            best_child.borrow().visits,
-            root_ref.visits,
-            best_child.borrow().wins / best_child.borrow().visits.max(1) as f64 * 100.0
-        );
+        // Debug output (commented for performance)
+        // let visits = best_child.borrow().visits;
+        // let wins = best_child.borrow().wins;
+        // println!(
+        //     "MCTS: {} iterations, best move visits: {}/{} (wins: {:.1}/{}, win rate: {:.1}%)",
+        //     _iterations,
+        //     visits,
+        //     root_ref.visits,
+        //     wins,
+        //     visits,
+        //     wins / visits.max(1) as f64 * 100.0
+        // );
 
         best_move
     }

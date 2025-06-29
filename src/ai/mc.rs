@@ -145,7 +145,7 @@ impl Player for MonteCarloAI {
         // Run simulations for each valid move
         let mut move_wins = vec![0; valid_moves.len()];
         let mut move_games = vec![0; valid_moves.len()];
-        let mut total_simulations = 0;
+        let mut _total_simulations = 0;
 
         let start_time = Instant::now();
 
@@ -163,7 +163,7 @@ impl Player for MonteCarloAI {
                 if result > 0.5 {
                     move_wins[idx] += 1;
                 }
-                total_simulations += 1;
+                _total_simulations += 1;
             }
         }
 
@@ -181,14 +181,14 @@ impl Player for MonteCarloAI {
             }
         }
 
-        // Debug output
-        println!(
-            "Monte Carlo: {} simulations, best move win rate: {:.1}% ({}/{})",
-            total_simulations,
-            best_win_rate * 100.0,
-            move_wins[best_idx],
-            move_games[best_idx]
-        );
+        // Debug output (commented out for performance)
+        // println!(
+        //     "Monte Carlo: {} simulations, best move win rate: {:.1}% ({}/{})",
+        //     total_simulations,
+        //     best_win_rate * 100.0,
+        //     move_wins[best_idx],
+        //     move_games[best_idx]
+        // );
 
         Some(valid_moves[best_idx])
     }

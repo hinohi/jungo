@@ -231,7 +231,7 @@ mod tests {
         // Fill most of the board with Black stones
         for y in 0..5 {
             for x in 0..5 {
-                if !((x == 0 && y == 3) || (x == 2 && y == 3)) {
+                if !(y == 3 && (x == 0 || x == 2)) {
                     board.place_stone(x, y, Stone::Black).unwrap();
                 }
             }
