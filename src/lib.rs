@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod board;
+pub mod fast_board;
 pub mod game;
 pub mod player;
 pub mod stats;

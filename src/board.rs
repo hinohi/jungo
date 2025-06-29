@@ -53,33 +53,113 @@ impl Board {
             return false;
         }
 
-        // Create a temporary board to test the move
-        let mut test_board = self.clone();
-        test_board.grid[y][x] = Some(stone);
-
-        // Check if this move would capture opponent stones
+        // Fast path: check if we would capture opponent stones
         let opponent = stone.opposite();
-        let neighbors = test_board.get_neighbors(x, y);
-        let mut would_capture = false;
+        let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
 
-        for (nx, ny) in &neighbors {
-            if test_board.get(*nx, *ny) == Some(opponent) {
-                let group = test_board.get_group(*nx, *ny);
-                if test_board.has_no_liberties(&group) {
-                    would_capture = true;
-                    break;
+        for &(nx, ny) in &neighbors[..neighbor_count] {
+            if self.get(nx, ny) == Some(opponent) {
+                // Check if opponent group would be captured after our move
+                if self.would_capture_after_move(nx, ny, x, y) {
+                    return true; // Capturing move is always valid
                 }
             }
         }
 
-        // If we would capture opponent stones, the move is valid
-        if would_capture {
-            return true;
+        // Check if our stone would have at least one liberty
+        for &(nx, ny) in &neighbors[..neighbor_count] {
+            if self.get(nx, ny).is_none() {
+                return true; // Has an empty neighbor
+            }
         }
 
-        // Otherwise, check if our group would have liberties
-        let self_group = test_board.get_group(x, y);
-        !test_board.has_no_liberties(&self_group)
+        // Check if we connect to a friendly group that has other liberties
+        for &(nx, ny) in &neighbors[..neighbor_count] {
+            if self.get(nx, ny) == Some(stone) {
+                // Check if the friendly group has liberties other than (x,y)
+                if self.group_has_liberty_except(nx, ny, x, y) {
+                    return true;
+                }
+            }
+        }
+
+        false // Would be suicide without capture
+    }
+
+    // Helper method: check if a group would be captured after blocking one liberty
+    fn would_capture_after_move(
+        &self,
+        group_x: usize,
+        group_y: usize,
+        block_x: usize,
+        block_y: usize,
+    ) -> bool {
+        let stone = self.get(group_x, group_y);
+        if stone.is_none() {
+            return false;
+        }
+
+        let mut visited = vec![vec![false; self.size]; self.size];
+        !self.has_liberty_except_recursive(
+            group_x,
+            group_y,
+            stone.unwrap(),
+            block_x,
+            block_y,
+            &mut visited,
+        )
+    }
+
+    // Helper method: check if a group has at least one liberty excluding a specific position
+    fn group_has_liberty_except(
+        &self,
+        x: usize,
+        y: usize,
+        except_x: usize,
+        except_y: usize,
+    ) -> bool {
+        let stone = self.get(x, y);
+        if stone.is_none() {
+            return false;
+        }
+
+        let mut visited = vec![vec![false; self.size]; self.size];
+        self.has_liberty_except_recursive(x, y, stone.unwrap(), except_x, except_y, &mut visited)
+    }
+
+    fn has_liberty_except_recursive(
+        &self,
+        x: usize,
+        y: usize,
+        stone: Stone,
+        except_x: usize,
+        except_y: usize,
+        visited: &mut Vec<Vec<bool>>,
+    ) -> bool {
+        if visited[y][x] {
+            return false;
+        }
+        visited[y][x] = true;
+
+        let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
+        for &(nx, ny) in &neighbors[..neighbor_count] {
+            match self.get(nx, ny) {
+                None => {
+                    if (nx, ny) != (except_x, except_y) {
+                        return true; // Found a liberty
+                    }
+                }
+                Some(s) if s == stone => {
+                    if self.has_liberty_except_recursive(nx, ny, stone, except_x, except_y, visited)
+                    {
+                        return true;
+                    }
+                }
+                _ => {} // Opponent stone
+            }
+        }
+
+        false
     }
 
     pub fn is_valid_move_with_ko(
@@ -139,11 +219,11 @@ impl Board {
         }
 
         // Get all neighbors
-        let neighbors = self.get_neighbors(x, y);
+        let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
 
         // All neighbors must be the same color
-        for (nx, ny) in &neighbors {
-            match self.get(*nx, *ny) {
+        for &(nx, ny) in &neighbors[..neighbor_count] {
+            match self.get(nx, ny) {
                 Some(neighbor_stone) if neighbor_stone != stone => return false,
                 None => return false, // Empty neighbor means not an eye
                 _ => continue,
@@ -220,9 +300,9 @@ impl Board {
         let mut total_captured = 0;
 
         // Check adjacent positions
-        let neighbors = self.get_neighbors(x, y);
+        let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
 
-        for (nx, ny) in neighbors {
+        for &(nx, ny) in &neighbors[..neighbor_count] {
             if self.get(nx, ny) == Some(opponent) {
                 let group = self.get_group(nx, ny);
                 if self.has_no_liberties(&group) {
@@ -247,23 +327,29 @@ impl Board {
         total_captured
     }
 
-    fn get_neighbors(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
-        let mut neighbors = Vec::new();
+    // More efficient version that fills a provided array
+    fn get_neighbors_array(&self, x: usize, y: usize) -> ([(usize, usize); 4], usize) {
+        let mut neighbors = [(0, 0); 4];
+        let mut count = 0;
 
         if x > 0 {
-            neighbors.push((x - 1, y));
+            neighbors[count] = (x - 1, y);
+            count += 1;
         }
         if x < self.size - 1 {
-            neighbors.push((x + 1, y));
+            neighbors[count] = (x + 1, y);
+            count += 1;
         }
         if y > 0 {
-            neighbors.push((x, y - 1));
+            neighbors[count] = (x, y - 1);
+            count += 1;
         }
         if y < self.size - 1 {
-            neighbors.push((x, y + 1));
+            neighbors[count] = (x, y + 1);
+            count += 1;
         }
 
-        neighbors
+        (neighbors, count)
     }
 
     fn get_group(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
@@ -284,7 +370,8 @@ impl Board {
             visited[cy][cx] = true;
             group.push((cx, cy));
 
-            for (nx, ny) in self.get_neighbors(cx, cy) {
+            let (neighbors, neighbor_count) = self.get_neighbors_array(cx, cy);
+            for &(nx, ny) in &neighbors[..neighbor_count] {
                 if !visited[ny][nx] && self.get(nx, ny) == Some(stone) {
                     stack.push((nx, ny));
                 }
@@ -296,7 +383,8 @@ impl Board {
 
     fn has_no_liberties(&self, group: &[(usize, usize)]) -> bool {
         for &(x, y) in group {
-            for (nx, ny) in self.get_neighbors(x, y) {
+            let (neighbors, neighbor_count) = self.get_neighbors_array(x, y);
+            for &(nx, ny) in &neighbors[..neighbor_count] {
                 if self.get(nx, ny).is_none() {
                     return false;
                 }

@@ -47,5 +47,25 @@ path = "src/bin/quick_test.rs"
 name = "final_test"
 path = "src/bin/final_test.rs"
 
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
+[[bin]]
+name = "benchmark2"
+path = "src/bin/benchmark2.rs"
+
+[[bin]]
+name = "benchmark3"
+path = "src/bin/benchmark3.rs"
+
+[[bin]]
+name = "benchmark_move_selection"
+path = "src/bin/benchmark_move_selection.rs"
+
+[[bin]]
+name = "benchmark_board_comparison"
+path = "src/bin/benchmark_board_comparison.rs"
+
 [dependencies]
 rand = "0.8"
