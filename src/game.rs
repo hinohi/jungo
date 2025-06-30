@@ -6,15 +6,19 @@ pub struct Game {
     pub current_turn: Stone,
     pub consecutive_passes: usize,
     pub previous_board: Option<Board>,
+    pub board_history: Vec<u64>, // Store hashes of all previous board states
 }
 
 impl Game {
     pub fn new(board_size: usize) -> Self {
+        let board = Board::new(board_size);
+        let initial_hash = board.get_hash();
         Game {
-            board: Board::new(board_size),
+            board,
             current_turn: Stone::Black,
             consecutive_passes: 0,
             previous_board: None,
+            board_history: vec![initial_hash],
         }
     }
 
@@ -36,43 +40,32 @@ impl Game {
 
             match current_player.get_move(&self.board, self.current_turn) {
                 Some((x, y)) => {
-                    // Check Ko rule before placing stone
-                    if let Some(ref prev_board) = self.previous_board {
-                        if self
-                            .board
-                            .is_valid_move_with_ko(x, y, self.current_turn, prev_board)
-                        {
-                            // Save current board state before making the move
-                            let board_before_move = self.board.clone();
+                    // First check if the move is valid
+                    if !self.board.is_valid_move(x, y, self.current_turn) {
+                        println!("Invalid move: Position not valid");
+                        continue;
+                    }
 
-                            match self.board.place_stone(x, y, self.current_turn) {
-                                Ok(_) => {
-                                    self.consecutive_passes = 0;
-                                    self.previous_board = Some(board_before_move);
-                                    println!(
-                                        "{} plays at {}{}",
-                                        current_player.name(),
-                                        (b'A' + x as u8) as char,
-                                        self.board.size() - y
-                                    );
-                                }
-                                Err(e) => {
-                                    println!("Invalid move: {}", e);
-                                    continue;
-                                }
-                            }
-                        } else {
+                    // Clone board to test the move
+                    let mut test_board = self.board.clone();
+                    if test_board.place_stone(x, y, self.current_turn).is_ok() {
+                        let new_hash = test_board.get_hash();
+
+                        // Check Ko rule: see if this board state occurred 2 moves ago
+                        // (1 move ago would be opponent's move)
+                        let history_len = self.board_history.len();
+                        if history_len >= 2 && self.board_history[history_len - 2] == new_hash {
                             println!("Invalid move: Ko rule violation!");
                             continue;
                         }
-                    } else {
-                        // First move, no Ko check needed
-                        let board_before_move = self.board.clone();
 
+                        // Move is valid, apply it
+                        let board_before_move = self.board.clone();
                         match self.board.place_stone(x, y, self.current_turn) {
                             Ok(_) => {
                                 self.consecutive_passes = 0;
                                 self.previous_board = Some(board_before_move);
+                                self.board_history.push(self.board.get_hash());
                                 println!(
                                     "{} plays at {}{}",
                                     current_player.name(),
@@ -85,6 +78,9 @@ impl Game {
                                 continue;
                             }
                         }
+                    } else {
+                        println!("Invalid move: Cannot place stone");
+                        continue;
                     }
                 }
                 None => {

@@ -31,7 +31,6 @@ impl MonteCarloAI {
 
         let mut current_turn = stone.opposite();
         let mut consecutive_passes = 0;
-        let mut previous_board = Some(board.clone());
 
         // Create two RandomAI players
         let random1 = RandomAI::new();
@@ -49,19 +48,9 @@ impl MonteCarloAI {
 
             match current_player.get_move(&sim_board, current_turn) {
                 Some((x, y)) => {
-                    // Check Ko rule if we have a previous board
-                    let is_valid = if let Some(ref prev_board) = previous_board {
-                        sim_board.is_valid_move_with_ko(x, y, current_turn, prev_board)
-                    } else {
-                        sim_board.is_valid_move(x, y, current_turn)
-                    };
-
-                    if is_valid {
-                        let board_before_move = sim_board.clone();
-                        if sim_board.place_stone(x, y, current_turn).is_ok() {
-                            consecutive_passes = 0;
-                            previous_board = Some(board_before_move);
-                        }
+                    // In simulation, we don't track Ko rule for performance
+                    if sim_board.place_stone(x, y, current_turn).is_ok() {
+                        consecutive_passes = 0;
                     }
                 }
                 None => {

@@ -1,3 +1,4 @@
+use crate::zobrist::ZobristTable;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +31,8 @@ pub struct Board {
     size: usize,
     grid: Vec<u8>,            // 0 = empty, 1 = black, 2 = white
     captured: (usize, usize), // (black_captured, white_captured)
+    zobrist_table: ZobristTable,
+    current_hash: u64,
 }
 
 const EMPTY: u8 = 0;
@@ -42,6 +45,8 @@ impl Board {
             size,
             grid: vec![EMPTY; size * size],
             captured: (0, 0),
+            zobrist_table: ZobristTable::new(size),
+            current_hash: 0,
         }
     }
 
@@ -215,6 +220,11 @@ impl Board {
         let idx = self.index(x, y);
         self.grid[idx] = stone_u8;
 
+        // Update Zobrist hash
+        self.current_hash ^= self
+            .zobrist_table
+            .get_stone_hash(x, y, stone == Stone::Black);
+
         // Check and remove captured stones
         let captured = self.check_captures(x, y, stone);
 
@@ -242,7 +252,10 @@ impl Board {
                     // Remove the captured group
                     for &(gx, gy) in &group {
                         let idx = self.index(gx, gy);
+                        let was_black = self.grid[idx] == BLACK;
                         self.grid[idx] = EMPTY;
+                        // Update Zobrist hash for removed stone
+                        self.current_hash ^= self.zobrist_table.get_stone_hash(gx, gy, was_black);
                     }
                     total_captured += group.len();
                 }
@@ -255,7 +268,10 @@ impl Board {
             // Remove the self-captured group
             for &(gx, gy) in &self_group {
                 let idx = self.index(gx, gy);
+                let was_black = self.grid[idx] == BLACK;
                 self.grid[idx] = EMPTY;
+                // Update Zobrist hash for removed stone
+                self.current_hash ^= self.zobrist_table.get_stone_hash(gx, gy, was_black);
             }
         }
 
@@ -424,6 +440,10 @@ impl Board {
         eye_count
     }
 
+    pub fn get_hash(&self) -> u64 {
+        self.current_hash
+    }
+
     // Additional methods for compatibility
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
@@ -445,33 +465,18 @@ impl Board {
         (black_count, white_count)
     }
 
-    pub fn is_valid_move_with_ko(
-        &self,
-        x: usize,
-        y: usize,
-        stone: Stone,
-        previous_board: &Board,
-    ) -> bool {
+    // Check if placing a stone would result in a specific board hash
+    pub fn would_result_in_hash(&self, x: usize, y: usize, stone: Stone) -> Option<u64> {
         if !self.is_valid_move(x, y, stone) {
-            return false;
+            return None;
         }
 
-        // Simulate the move to check for Ko
         let mut test_board = self.clone();
-        if test_board.place_stone(x, y, stone).is_err() {
-            return false;
+        if test_board.place_stone(x, y, stone).is_ok() {
+            Some(test_board.get_hash())
+        } else {
+            None
         }
-
-        // Check if the resulting board would be the same as the previous board
-        !self.boards_are_equal(&test_board, previous_board)
-    }
-
-    pub fn boards_are_equal(&self, board1: &Board, board2: &Board) -> bool {
-        if board1.size != board2.size {
-            return false;
-        }
-
-        board1.grid == board2.grid
     }
 }
 

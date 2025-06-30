@@ -75,8 +75,8 @@ impl MctsNode {
         {
             // Child will be opponent's turn
             let child_stone = current_player.opposite();
-            // For Ko rule: after we make a move, the board before that move is the current board
-            let child_moves = get_valid_moves_with_ko(&child_board, child_stone, Some(board));
+            // Ko rule is handled at the Game level, not in MCTS
+            let child_moves = get_valid_moves(&child_board, child_stone);
 
             let child_node = Rc::new(RefCell::new(MctsNode::new(
                 child_stone,
@@ -299,28 +299,14 @@ impl Mcts {
     }
 }
 
-// Helper function to get valid moves considering eyes and Ko rule
+// Helper function to get valid moves considering eyes
 fn get_valid_moves(board: &Board, stone: Stone) -> Vec<(usize, usize)> {
-    get_valid_moves_with_ko(board, stone, None)
-}
-
-fn get_valid_moves_with_ko(
-    board: &Board,
-    stone: Stone,
-    previous_board: Option<&Board>,
-) -> Vec<(usize, usize)> {
     let mut valid_moves = Vec::new();
     let mut non_eye_moves = Vec::new();
 
     for y in 0..board.size() {
         for x in 0..board.size() {
-            let is_valid = if let Some(prev_board) = previous_board {
-                board.is_valid_move_with_ko(x, y, stone, prev_board)
-            } else {
-                board.is_valid_move(x, y, stone)
-            };
-
-            if is_valid {
+            if board.is_valid_move(x, y, stone) {
                 valid_moves.push((x, y));
                 if !board.is_eye(x, y, stone) {
                     non_eye_moves.push((x, y));

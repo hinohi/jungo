@@ -15,24 +15,28 @@ fn run_game_silent(player1: &dyn Player, player2: &dyn Player, board_size: usize
 
         match current_player.get_move(&game.board, game.current_turn) {
             Some((x, y)) => {
-                if let Some(ref prev_board) = game.previous_board {
-                    if game
-                        .board
-                        .is_valid_move_with_ko(x, y, game.current_turn, prev_board)
-                    {
-                        let board_before_move = game.board.clone();
+                // Check if the move is valid
+                if !game.board.is_valid_move(x, y, game.current_turn) {
+                    continue;
+                }
 
-                        if game.board.place_stone(x, y, game.current_turn).is_ok() {
-                            game.consecutive_passes = 0;
-                            game.previous_board = Some(board_before_move);
-                        }
+                // Clone board to test the move
+                let mut test_board = game.board.clone();
+                if test_board.place_stone(x, y, game.current_turn).is_ok() {
+                    let new_hash = test_board.get_hash();
+
+                    // Check Ko rule: see if this board state occurred 2 moves ago
+                    let history_len = game.board_history.len();
+                    if history_len >= 2 && game.board_history[history_len - 2] == new_hash {
+                        continue; // Ko rule violation
                     }
-                } else {
-                    let board_before_move = game.board.clone();
 
+                    // Move is valid, apply it
+                    let board_before_move = game.board.clone();
                     if game.board.place_stone(x, y, game.current_turn).is_ok() {
                         game.consecutive_passes = 0;
                         game.previous_board = Some(board_before_move);
+                        game.board_history.push(game.board.get_hash());
                     }
                 }
             }

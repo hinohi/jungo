@@ -47,6 +47,14 @@ path = "src/bin/quick_test.rs"
 name = "final_test"
 path = "src/bin/final_test.rs"
 
+[[bin]]
+name = "test_ko"
+path = "src/bin/test_ko.rs"
+
+[[bin]]
+name = "test_eyes"
+path = "src/bin/test_eyes.rs"
+
 
 
 

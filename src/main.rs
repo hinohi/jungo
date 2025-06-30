@@ -2,6 +2,7 @@ mod ai;
 mod board;
 mod game;
 mod player;
+mod zobrist;
 
 use crate::ai::{Mcts, MinimaxAI, MonteCarloAI, RandomAI};
 use crate::game::Game;
