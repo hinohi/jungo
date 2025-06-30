@@ -88,8 +88,7 @@ fn bench_ai_dense_board(c: &mut Criterion) {
 
     // Fill 80% of the board
     let fill_count = (positions.len() * 4) / 5;
-    for i in 0..fill_count {
-        let (x, y) = positions[i];
+    for (i, &(x, y)) in positions.iter().enumerate().take(fill_count) {
         let stone = if i % 2 == 0 {
             Stone::Black
         } else {

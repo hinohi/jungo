@@ -464,20 +464,6 @@ impl Board {
 
         (black_count, white_count)
     }
-
-    // Check if placing a stone would result in a specific board hash
-    pub fn would_result_in_hash(&self, x: usize, y: usize, stone: Stone) -> Option<u64> {
-        if !self.is_valid_move(x, y, stone) {
-            return None;
-        }
-
-        let mut test_board = self.clone();
-        if test_board.place_stone(x, y, stone).is_ok() {
-            Some(test_board.get_hash())
-        } else {
-            None
-        }
-    }
 }
 
 impl fmt::Display for Board {

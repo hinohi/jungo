@@ -8,9 +8,9 @@ use std::time::{Duration, Instant};
 #[derive(Clone)]
 struct MctsNode {
     visits: u32,
-    wins: f64,
+    black_wins: f64, // Number of times Black won in simulations from this node
     move_pos: Option<(usize, usize)>, // The move that led to this position (None for root)
-    player_to_move: Stone,            // Whose turn it is to play FROM this position
+    player_to_move: Stone, // Whose turn it is to play FROM this position
     children: Vec<Rc<RefCell<MctsNode>>>,
     untried_moves: Vec<(usize, usize)>,
 }
@@ -23,7 +23,7 @@ impl MctsNode {
     ) -> Self {
         MctsNode {
             visits: 0,
-            wins: 0.0,
+            black_wins: 0.0,
             move_pos,
             player_to_move,
             children: Vec::new(),
@@ -31,11 +31,16 @@ impl MctsNode {
         }
     }
 
-    fn uct_value(&self, parent_visits: u32, exploration: f64) -> f64 {
+    fn uct_value(&self, parent_visits: u32, exploration: f64, parent_player: Stone) -> f64 {
         if self.visits == 0 {
             f64::INFINITY
         } else {
-            let win_rate = self.wins / self.visits as f64;
+            // Calculate win rate from parent's perspective
+            let win_rate = match parent_player {
+                Stone::Black => self.black_wins / self.visits as f64,
+                Stone::White => 1.0 - (self.black_wins / self.visits as f64),
+            };
+
             let exploration_term =
                 exploration * ((parent_visits as f64).ln() / self.visits as f64).sqrt();
             win_rate + exploration_term
@@ -47,11 +52,16 @@ impl MctsNode {
             return None;
         }
 
+        let parent_player = self.player_to_move;
         self.children
             .iter()
             .max_by(|a, b| {
-                let a_val = a.borrow().uct_value(self.visits, exploration);
-                let b_val = b.borrow().uct_value(self.visits, exploration);
+                let a_val = a
+                    .borrow()
+                    .uct_value(self.visits, exploration, parent_player);
+                let b_val = b
+                    .borrow()
+                    .uct_value(self.visits, exploration, parent_player);
                 a_val.partial_cmp(&b_val).unwrap()
             })
             .cloned()
@@ -91,9 +101,11 @@ impl MctsNode {
         }
     }
 
-    fn update(&mut self, result: f64) {
+    fn update(&mut self, black_won: bool) {
         self.visits += 1;
-        self.wins += result;
+        if black_won {
+            self.black_wins += 1.0;
+        }
     }
 }
 
@@ -108,7 +120,7 @@ impl Mcts {
         Mcts {
             name: format!("MCTS AI ({}s)", time_seconds),
             time_limit: Duration::from_secs(time_seconds),
-            exploration: 1.4, // Standard UCT exploration constant
+            exploration: 2.0, // Higher exploration for Go (was 1.4)
         }
     }
 
@@ -246,27 +258,19 @@ impl Mcts {
 
             // Simulation phase - play out random game
             // current_player is whose turn it is to play from current position
-            let result = self.simulate(&current_board, current_player);
+            let simulation_result = self.simulate(&current_board, current_player);
 
-            // Backpropagation phase - update all nodes in path
-            // Result is from the perspective of the player who moves first in simulation
-            // We propagate the result up the tree, flipping perspective at each level
-            let simulation_winner = if result > 0.5 {
-                current_player
-            } else {
-                current_player.opposite()
+            // Backpropagation phase
+            // simulation_result is 1.0 if current_player wins, 0.0 if loses
+            // Convert to whether Black won
+            let black_won = match current_player {
+                Stone::Black => simulation_result > 0.5,
+                Stone::White => simulation_result < 0.5,
             };
 
+            // Update all nodes in the path
             for node in path.iter() {
-                let node_player = node.borrow().player_to_move;
-                // This node represents a position where node_player is about to move
-                // If the simulation winner is node_player, this is a good position for them
-                let node_result = if node_player == simulation_winner {
-                    1.0
-                } else {
-                    0.0
-                };
-                node.borrow_mut().update(node_result);
+                node.borrow_mut().update(black_won);
             }
 
             _iterations += 1;
@@ -282,18 +286,8 @@ impl Mcts {
 
         let best_move = best_child.borrow().move_pos;
 
-        // Debug output (commented for performance)
-        // let visits = best_child.borrow().visits;
-        // let wins = best_child.borrow().wins;
-        // println!(
-        //     "MCTS: {} iterations, best move visits: {}/{} (wins: {:.1}/{}, win rate: {:.1}%)",
-        //     _iterations,
-        //     visits,
-        //     root_ref.visits,
-        //     wins,
-        //     visits,
-        //     wins / visits.max(1) as f64 * 100.0
-        // );
+        // Debug output (commented out for production)
+        // println!("\nMCTS: {} iterations, root visits: {}", _iterations, root_ref.visits);
 
         best_move
     }
