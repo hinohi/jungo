@@ -1,0 +1,3 @@
+MCTS Strength Test - 5x5 Board
+================================
+

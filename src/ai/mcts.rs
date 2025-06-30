@@ -1,4 +1,3 @@
-use crate::ai::LightRandomAI;
 use crate::board::{Board, Stone};
 use crate::player::Player;
 use std::cell::RefCell;
@@ -35,7 +34,9 @@ impl MctsNode {
         if self.visits == 0 {
             f64::INFINITY
         } else {
-            // Calculate win rate from parent's perspective
+            // This node contains statistics collected from the position
+            // AFTER parent_player has made a move. The statistics show
+            // how often Black wins from this position.
             let win_rate = match parent_player {
                 Stone::Black => self.black_wins / self.visits as f64,
                 Stone::White => 1.0 - (self.black_wins / self.visits as f64),
@@ -129,30 +130,25 @@ impl Mcts {
         let mut current_turn = stone;
         let mut consecutive_passes = 0;
 
-        // Use lightweight random players for faster simulation
-        let mut random1 = LightRandomAI::new();
-        let mut random2 = LightRandomAI::new();
-
         let mut moves = 0;
         let max_moves = board.size() * board.size(); // Further reduced
 
         loop {
-            let valid_move = match current_turn {
-                s if s == stone => random1.get_fast_move(&sim_board, current_turn),
-                _ => random2.get_fast_move(&sim_board, current_turn),
-            };
+            // Use get_valid_moves to respect eye rules
+            let valid_moves = get_valid_moves(&sim_board, current_turn);
 
-            match valid_move {
-                Some((x, y)) => {
-                    if sim_board.place_stone(x, y, current_turn).is_ok() {
-                        consecutive_passes = 0;
-                    }
+            if valid_moves.is_empty() {
+                consecutive_passes += 1;
+                if consecutive_passes >= 2 {
+                    break;
                 }
-                None => {
-                    consecutive_passes += 1;
-                    if consecutive_passes >= 2 {
-                        break;
-                    }
+            } else {
+                // Pick a random valid move
+                let idx = rand::random::<usize>() % valid_moves.len();
+                let (x, y) = valid_moves[idx];
+
+                if sim_board.place_stone(x, y, current_turn).is_ok() {
+                    consecutive_passes = 0;
                 }
             }
 

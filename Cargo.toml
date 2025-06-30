@@ -27,12 +27,30 @@ path = "src/bin/quick_test.rs"
 name = "final_test"
 path = "src/bin/final_test.rs"
 
+[[bin]]
+name = "mcts_strength_test"
+path = "src/bin/mcts_strength_test.rs"
+
+[[bin]]
+name = "mcts_quick_strength"
+path = "src/bin/mcts_quick_strength.rs"
+
+[[bin]]
+name = "mcts_mini_test"
+path = "src/bin/mcts_mini_test.rs"
+
+
+[[bin]]
+name = "mcts_simple_match"
+path = "src/bin/mcts_simple_match.rs"
+
 
 
 
 
 [dependencies]
 rand = "0.8"
+chrono = "0.4"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
