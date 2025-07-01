@@ -70,7 +70,7 @@ impl Game {
                                     "{} plays at {}{}",
                                     current_player.name(),
                                     (b'A' + x as u8) as char,
-                                    self.board.size() - y
+                                    y + 1
                                 );
                             }
                             Err(e) => {

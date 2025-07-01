@@ -67,7 +67,7 @@ impl Player for HumanPlayer {
                         continue;
                     }
 
-                    let row = board.size() - row_num;
+                    let row = row_num - 1;
 
                     if board.is_valid_move(col, row, _stone) {
                         return Some((col, row));

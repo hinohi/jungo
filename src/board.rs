@@ -468,15 +468,15 @@ impl Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Print column labels
+        // Print column labels (A, B, C, etc.)
         write!(f, "   ")?;
         for x in 0..self.size {
-            write!(f, "{:2}", x)?;
+            write!(f, " {}", (b'A' + x as u8) as char)?;
         }
         writeln!(f)?;
 
         for y in 0..self.size {
-            write!(f, "{:2} ", y)?;
+            write!(f, "{:2} ", y + 1)?;
             for x in 0..self.size {
                 match self.get(x, y) {
                     None => write!(f, " .")?,
