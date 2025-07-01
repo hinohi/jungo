@@ -16,6 +16,13 @@ impl MonteCarloAI {
         }
     }
 
+    pub fn new_with_millis(time_millis: u64) -> Self {
+        MonteCarloAI {
+            name: format!("Monte Carlo AI ({:.1}s)", time_millis as f64 / 1000.0),
+            time_limit: Duration::from_millis(time_millis),
+        }
+    }
+
     fn simulate_game(&self, board: &Board, stone: Stone, first_move: (usize, usize)) -> f64 {
         // Create a new board with the same state including captured stones
         let mut sim_board = board.clone();

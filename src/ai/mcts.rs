@@ -121,7 +121,15 @@ impl Mcts {
         Mcts {
             name: format!("MCTS AI ({}s)", time_seconds),
             time_limit: Duration::from_secs(time_seconds),
-            exploration: 2.0, // Higher exploration for Go (was 1.4)
+            exploration: 1.4, // Standard UCT constant
+        }
+    }
+
+    pub fn new_with_millis(time_millis: u64) -> Self {
+        Mcts {
+            name: format!("MCTS AI ({:.1}s)", time_millis as f64 / 1000.0),
+            time_limit: Duration::from_millis(time_millis),
+            exploration: 1.4, // Standard UCT constant
         }
     }
 
@@ -167,20 +175,35 @@ impl Mcts {
         let black_score = (black_stones + black_captured) as i32;
         let white_score = (white_stones + white_captured) as i32;
 
-        // Return win (1.0) or loss (0.0) from perspective of the original stone
+        // Also consider eye count for more stable evaluation
+        let black_eyes = sim_board.count_eyes_for_color(Stone::Black);
+        let white_eyes = sim_board.count_eyes_for_color(Stone::White);
+
+        // Bonus for having 2+ eyes (alive group)
+        let black_bonus = if black_eyes >= 2 { 5 } else { 0 };
+        let white_bonus = if white_eyes >= 2 { 5 } else { 0 };
+
+        let final_black_score = black_score + black_bonus;
+        let final_white_score = white_score + white_bonus;
+
+        // Return win probability with small margin for draws
         match stone {
             Stone::Black => {
-                if black_score > white_score {
+                if final_black_score > final_white_score + 2 {
                     1.0
-                } else {
+                } else if final_white_score > final_black_score + 2 {
                     0.0
+                } else {
+                    0.5 // Close game
                 }
             }
             Stone::White => {
-                if white_score > black_score {
+                if final_white_score > final_black_score + 2 {
                     1.0
-                } else {
+                } else if final_black_score > final_white_score + 2 {
                     0.0
+                } else {
+                    0.5 // Close game
                 }
             }
         }

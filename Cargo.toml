@@ -44,8 +44,25 @@ path = "src/bin/mcts_mini_test.rs"
 name = "mcts_simple_match"
 path = "src/bin/mcts_simple_match.rs"
 
+[[bin]]
+name = "ai_league"
+path = "src/bin/ai_league.rs"
 
+[[bin]]
+name = "ai_league_quick"
+path = "src/bin/ai_league_quick.rs"
 
+[[bin]]
+name = "ai_single_match"
+path = "src/bin/ai_single_match.rs"
+
+[[bin]]
+name = "ai_mini_league"
+path = "src/bin/ai_mini_league.rs"
+
+[[bin]]
+name = "ai_test_match"
+path = "src/bin/ai_test_match.rs"
 
 
 [dependencies]
