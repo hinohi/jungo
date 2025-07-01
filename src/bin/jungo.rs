@@ -1,12 +1,6 @@
-mod ai;
-mod board;
-mod game;
-mod player;
-mod zobrist;
-
-use crate::ai::{Mcts, MonteCarloAI, RandomAI};
-use crate::game::Game;
-use crate::player::{HumanPlayer, Player};
+use jungo::ai::{Mcts, MonteCarloAI, RandomAI};
+use jungo::game::Game;
+use jungo::player::{HumanPlayer, Player};
 use std::io::{self, Write};
 
 fn main() {

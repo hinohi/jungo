@@ -445,7 +445,6 @@ impl Board {
     }
 
     // Additional methods for compatibility
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.grid.iter().all(|&cell| cell == EMPTY)
     }

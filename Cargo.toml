@@ -3,68 +3,6 @@ name = "jungo"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "jungo"
-path = "src/main.rs"
-
-[[bin]]
-name = "run_stats"
-path = "src/bin/run_stats.rs"
-
-[[bin]]
-name = "mcts_stats"
-path = "src/bin/mcts_stats.rs"
-
-[[bin]]
-name = "mcts_vs_mc"
-path = "src/bin/mcts_vs_mc.rs"
-
-[[bin]]
-name = "quick_test"
-path = "src/bin/quick_test.rs"
-
-[[bin]]
-name = "final_test"
-path = "src/bin/final_test.rs"
-
-[[bin]]
-name = "mcts_strength_test"
-path = "src/bin/mcts_strength_test.rs"
-
-[[bin]]
-name = "mcts_quick_strength"
-path = "src/bin/mcts_quick_strength.rs"
-
-[[bin]]
-name = "mcts_mini_test"
-path = "src/bin/mcts_mini_test.rs"
-
-
-[[bin]]
-name = "mcts_simple_match"
-path = "src/bin/mcts_simple_match.rs"
-
-[[bin]]
-name = "ai_league"
-path = "src/bin/ai_league.rs"
-
-[[bin]]
-name = "ai_league_quick"
-path = "src/bin/ai_league_quick.rs"
-
-[[bin]]
-name = "ai_single_match"
-path = "src/bin/ai_single_match.rs"
-
-[[bin]]
-name = "ai_mini_league"
-path = "src/bin/ai_mini_league.rs"
-
-[[bin]]
-name = "ai_test_match"
-path = "src/bin/ai_test_match.rs"
-
-
 [dependencies]
 rand = "0.8"
 chrono = "0.4"
@@ -84,10 +22,3 @@ harness = false
 name = "random_ai_benchmark"
 harness = false
 
-[[bench]]
-name = "random_ai_comparison"
-harness = false
-
-[[bench]]
-name = "random_ai_quick_bench"
-harness = false
