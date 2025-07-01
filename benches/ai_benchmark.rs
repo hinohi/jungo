@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use jungo::ai::{LightRandomAI, RandomAI};
+use jungo::ai::RandomAI;
 use jungo::board::{Board, Stone};
 use jungo::player::Player;
 
@@ -37,16 +37,7 @@ fn bench_ai_move_selection(c: &mut Criterion) {
             },
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("LightRandomAI", format!("{}x{}", size, size)),
-            &board,
-            |b, board| {
-                let ai = LightRandomAI::new();
-                b.iter(|| {
-                    black_box(ai.get_move(board, Stone::Black));
-                });
-            },
-        );
+        // LightRandomAI removed - no longer exists
     }
 
     group.finish();
@@ -104,12 +95,7 @@ fn bench_ai_dense_board(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("LightRandomAI_19x19_dense", |b| {
-        let ai = LightRandomAI::new();
-        b.iter(|| {
-            black_box(ai.get_move(&board, Stone::Black));
-        });
-    });
+    // LightRandomAI removed - no longer exists
 
     group.finish();
 }

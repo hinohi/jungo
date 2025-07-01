@@ -239,7 +239,7 @@ fn main() {
     // Calculate total wins for each player
     let mut standings: Vec<(String, i32, i32)> = Vec::new();
 
-    for (idx, name) in ai_names.iter().enumerate() {
+    for name in ai_names.iter() {
         let mut total_wins = 0;
         let mut total_games = 0;
 

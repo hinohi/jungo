@@ -79,3 +79,15 @@ harness = false
 [[bench]]
 name = "ai_benchmark"
 harness = false
+
+[[bench]]
+name = "random_ai_benchmark"
+harness = false
+
+[[bench]]
+name = "random_ai_comparison"
+harness = false
+
+[[bench]]
+name = "random_ai_quick_bench"
+harness = false

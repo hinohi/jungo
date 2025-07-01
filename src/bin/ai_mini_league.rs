@@ -24,12 +24,12 @@ fn play_single_game(player1: &dyn Player, player2: &dyn Player) -> (i32, i32) {
                     if test_board.place_stone(x, y, game.current_turn).is_ok() {
                         let new_hash = test_board.get_hash();
                         let history_len = game.board_history.len();
-                        if history_len < 2 || game.board_history[history_len - 2] != new_hash {
-                            if game.board.place_stone(x, y, game.current_turn).is_ok() {
-                                move_count += 1;
-                                game.consecutive_passes = 0;
-                                game.board_history.push(game.board.get_hash());
-                            }
+                        if (history_len < 2 || game.board_history[history_len - 2] != new_hash)
+                            && game.board.place_stone(x, y, game.current_turn).is_ok()
+                        {
+                            move_count += 1;
+                            game.consecutive_passes = 0;
+                            game.board_history.push(game.board.get_hash());
                         }
                     }
                 }
